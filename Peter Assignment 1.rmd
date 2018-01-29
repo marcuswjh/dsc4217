@@ -1,0 +1,87 @@
+---
+title: "Assignment 1"
+output: html_document
+---
+Question 1
+```{r}
+# 1. Dimensions of Data
+dim(airquality)
+
+# 2. Column names
+colnames(airquality)
+
+# 3. Remove rows with missing data
+na.omit(airquality)
+
+# 4. Subset where Month is 5
+airquality[airquality$Month==5,]
+
+# 5. No. of rows of data with 7 < Wind < 8
+nrow(airquality[airquality$Wind >=7 & airquality$Wind <=8,])
+
+# 6. Air Index
+airquality$Index = airquality$Solar.R * airquality$Wind / airquality$Temp
+
+# 7. Subset of Data
+na.omit(airquality[c("Solar.R","Index","Month","Day")])
+
+# 8. Last day of each month
+for (x in 5:9) {print(tail(airquality$Day[airquality$Month==x],n=1))}
+
+# 9. Maximum and Minimum temperature of each month
+for (x in 5:9) {print(c(max(airquality$Temp[airquality$Month==x]),min(airquality$Temp[airquality$Month==x])))}
+```
+
+Question 2
+```{r}
+library(XML)
+library(RCurl)
+
+theurl<-"http://statisticstimes.com/geography/countries-by-continents.php"
+urldata<-getURL(theurl)
+data <-readHTMLTable(urldata, stringsAsFactors= FALSE)
+
+continents = c("Africa","Asia","Europe","North America","South America","Oceania")
+table = data.frame(Country=character(),Continent=character(),stringsAsFactors = FALSE)
+
+for (x in 1:6){
+  df = as.data.frame(data[x+2])
+  df = data.frame(df[1],Continent=continents[x])
+  colnames(df)[1] = "Country"
+  table = rbind(table,df)
+}
+print(table)
+```
+
+Question 3
+```{r}
+# Formatting Data
+movies = read.csv("MovieData.csv", stringsAsFactors = FALSE)
+movies$Budget = as.numeric(gsub('\\$|,','', movies$Budget))
+movies$US.Gross = as.numeric(gsub('\\$|,','', movies$US.Gross))
+movies$Worldwide.Gross = as.numeric(gsub('\\$|,','', movies$Worldwide.Gross))
+movies$Release.Date = as.Date(movies$Release.Date, "%d/%m/%Y")
+
+# Calculating new variables
+movies$Ratio1 = movies$US.Gross / movies$Budget
+movies$Ratio2 = movies$Worldwide.Gross / movies$Budget
+movies$Decade = ifelse(format(movies$Release.Date, "%Y")>1999, "2000s", ifelse(format(movies$Release.Date, "%Y")>1989, "1990s", "1980s"))
+
+# Distributors
+d = as.array(rownames(table(movies$Distributor, exclude="")[table(movies$Distributor, exclude="")>29]))
+movies$Distributor.New = "Other"
+for (x in 1:length(d)){
+  movies$Distributor.New[movies$Distributor == d[x]] = d[x]
+}
+
+# Statistics
+m1 = na.omit(movies[c("Ratio1","Distributor.New","Decade")])
+tapply(m1$Ratio1, list(m1$Distributor.New, m1$Decade), mean)
+tapply(m1$Ratio1, list(m1$Distributor.New, m1$Decade), sd)
+
+m2 = na.omit(movies[c("Ratio2","Distributor.New","Decade")])
+tapply(m2$Ratio2, list(m2$Distributor.New, m2$Decade), mean)
+tapply(m2$Ratio2, list(m2$Distributor.New, m2$Decade), sd)
+```
+
+
