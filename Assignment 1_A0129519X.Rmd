@@ -1,0 +1,125 @@
+---
+title: "Assignment 1_A0129519X"
+author: "Han Zixuan"
+date: "27/01/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Question 1
+```{r}
+#(1) What are the dimensions of the data?
+dim(airquality)
+
+#(2) What are the column names?
+colnames(airquality)
+
+#(3) Remove those rows with missing data
+airquality_clean <- na.omit(airquality)
+#For better presentation, rename the rows as according to the sequence 1,2,3... 
+row.names(airquality_clean) <- 1:nrow(airquality_clean)
+
+#(4) Find the sub set of the data where the "Month" is 5
+airquality_May <- airquality[airquality$Month == 5,]
+#or
+airquality_May <- subset(airquality, Month == 5)
+
+#(5) How many rows of data are there with ???Wind??? between 7 and 8 inclusive?
+sum(airquality$Wind>=7 & airquality$Wind<=8)
+
+#(6) *Suppose there is an air index calculated using the following formula: index = Solar.R*Wind/Temp. Add a column named "Index"" with the value calculated with the above formula to Airquality data set.
+airquality$Index <- airquality$Solar.R * airquality$Wind / airquality$Temp
+
+#(7) *Find the sub set of the new Airquality data with only "Solar.R", "Index", "Month", and "Day" columns and without missing value.
+airquality_new <- na.omit(subset(airquality, select = c(Solar.R, Index, Month, Day)))
+#or
+airquality_new <- na.omit(airquality[,c("Solar.R", "Index", "Month", "Day")])
+
+#(8) Find the last "Day" of each "Month"
+aggregate(Day ~ Month, FUN = max, data = airquality)
+
+#(9) Find the maximum and minimum temperature of each month
+#maximum temperature of each month
+aggregate(Temp ~ Month, FUN = max, data = airquality)
+#minimum temperature of each month
+aggregate(Temp ~ Month, FUN = min, data = airquality)
+#or display both results together
+aggregate(Temp ~ Month, FUN = function(x) c(max=max(x),min=min(x)), data = airquality)
+```
+
+
+#Question 2
+```{r}
+library(XML)
+library(RCurl)
+library(rvest)
+data <- read_html("http://statisticstimes.com/geography/countries-by-continents.php")
+countries <- html_table(html_nodes(data, "table.display") , fill=TRUE)
+continents <- html_text(html_nodes(data, "caption"))
+continents <- gsub("[(]+[0-9]+[)]","",continents)
+rows <- sapply(countries, NROW)
+continentsrep <- rep(continents, rows)
+country.df <- rbind(as.data.frame(countries[1]),as.data.frame(countries[2]),as.data.frame(countries[3]),as.data.frame(countries[4]),as.data.frame(countries[5]),as.data.frame(countries[6])) %>% cbind(continentsrep)
+country.df$Region <- NULL
+
+#full result 
+country.df
+```
+
+
+#Question 3
+
+###Part 1
+```{r}
+#load data
+movieData<-read.csv("MovieData.csv",na.strings="Unknown",stringsAsFactors = FALSE)
+movieData$US.Gross <- as.numeric(gsub("\\,", "", gsub("\\$", "", movieData$US.Gross)))
+movieData$Budget <- as.numeric(gsub("\\,", "", gsub("\\$", "", movieData$Budget)))
+movieData$Worldwide.Gross <- as.numeric(gsub("\\,", "", gsub("\\$", "", movieData$Worldwide.Gross)))
+
+#get Ratio1 vector, create a new column in the data frame
+movieData$Ratio1  <- movieData$US.Gross/movieData$Budget
+
+#get Ratio2 vector, create a new column in the data frame
+movieData$Ratio2 <- movieData$Worldwide.Gross/movieData$Budget
+
+#get Decade vector, create a new column in the data frame
+movieData$Decade <- substr(movieData$Release.Date, nchar(movieData$Release.Date)-4+1, nchar(movieData$Release.Date))
+movieData$Decade = paste(floor(as.integer(movieData$Decade)/10)*10,"s",sep="")
+
+#sample result 
+movieData[c(1:10),]
+```
+
+###Part 2
+```{r}
+movieData$Distributor <- sub("^$", "Other", movieData$Distributor)
+counts <- as.data.frame(tapply(movieData$Distributor,movieData$Distributor,length))
+movieData$Distributor.New = ifelse(counts[movieData$Distributor,1]>30, movieData$Distributor, "Other")
+table(movieData$Distributor.New)
+```
+
+###Part 3
+```{r}
+subset1 <- subset(movieData, Ratio1!="NA")
+subset1$Distributor.New<-as.factor(subset1$Distributor.New)
+subset1$Decade<-as.factor(subset1$Decade)
+#Average of Ratio1, categorised by "Distributor.New" and "Decade"
+tapply(subset1$Ratio1, INDEX = list(subset1$Distributor.New, subset1$Decade), mean)
+#SD of Ratio1, categorised by "Distributor.New" and "Decade"
+tapply(subset1$Ratio1, INDEX = list(subset1$Distributor.New, subset1$Decade), sd)
+```
+
+###Part 4
+```{r}
+subset2 <- subset(movieData, Worldwide.Gross!="NA")
+subset2$Distributor.New<-as.factor(subset2$Distributor.New)
+subset2$Decade<-as.factor(subset2$Decade)
+#Average of Ratio2, categorised by "Distributor.New" and "Decade"
+tapply(subset2$Ratio2, INDEX = list(subset2$Distributor.New, subset2$Decade), mean)
+#SD of Ratio2, categorised by "Distributor.New" and "Decade"
+tapply(subset2$Ratio2, INDEX = list(subset2$Distributor.New, subset2$Decade), sd)
+```
