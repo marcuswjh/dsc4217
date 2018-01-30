@@ -1,0 +1,286 @@
+---
+title: "Assignment 1 - Manipulating Data"
+author: "Marcus Wong"
+date: "January 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1
+
+## Part (1)
+
+```{r}
+dim(airquality)
+```
+The dimensions of the data are 
+153 rows (observations) and 6 columns (variables)
+
+## Part (2)
+
+```{r}
+colnames(airquality)
+```
+The column names are **"Ozone", "Solar.R", "Wind", "Temp", "Month", and "Day".
+
+## Part (3)
+
+```{r}
+airquality1 <- na.omit(airquality)
+airquality1
+```
+
+## Part (4)
+
+```{r}
+airqualityMay <- airquality1[airquality1$Month == 5,]
+airqualityMay
+```
+
+## Part (5)
+
+```{r}
+airqualityModerateWind <- airquality1[(airquality1$Wind>=7) & (airquality1$Wind<=8),]
+nrow(airqualityModerateWind)
+```
+There are 16 observations with "Wind" between 7 and 8 inclusive.
+
+## Part (6)
+
+```{r}
+airquality1$Index <- airquality1$Solar.R*airquality1$Wind/airquality1$Temp
+airquality1
+```
+
+## Part (7)
+
+```{r}
+airqualityNoOzoneNoWind <- subset(airquality1, select=-c(Ozone, Wind))
+airqualityNoOzoneNoWind
+```
+
+## Part (8)
+
+```{r}
+airqualityMonthly <- split(airquality1, airquality1$Month)
+max(airqualityMonthly$`5`$Day)
+max(airqualityMonthly$`6`$Day)
+max(airqualityMonthly$`7`$Day)
+max(airqualityMonthly$`8`$Day)
+max(airqualityMonthly$`9`$Day)
+```
+The last days of the months May to September are 31, 20, 31, 31, and 30 respectively.
+
+## Part (9)
+
+```{r}
+max(airqualityMonthly$`5`$Temp)
+min(airqualityMonthly$`5`$Temp)
+```
+In May, the maximum and minimum temperatures were 81 and 57.
+
+```{r}
+max(airqualityMonthly$`6`$Temp)
+min(airqualityMonthly$`6`$Temp)
+```
+In June, the maximum and minimum temperatures were 90 and 65.
+
+```{r}
+max(airqualityMonthly$`7`$Temp)
+min(airqualityMonthly$`7`$Temp)
+```
+In July, the maximum and minimum temperatures were 92 and 73.
+
+```{r}
+max(airqualityMonthly$`8`$Temp)
+min(airqualityMonthly$`8`$Temp)
+```
+In August, the maximum and minimum temperatures were 97 and 72.
+
+```{r}
+max(airqualityMonthly$`9`$Temp)
+min(airqualityMonthly$`9`$Temp)
+```
+In September, the maximum and minimum temperatures were 93 and 63.
+
+# Question 2
+
+```{r}
+library(RCurl)
+library(rvest)
+urldata <- getURL("http://statisticstimes.com/geography/countries-by-continents.php")
+countrydata <- read_html(urldata, stringsAsFactors=FALSE)
+
+RegionsByContinent <- html_nodes(countrydata, xpath="//*[@id=\"top\"]/div[4]/div[3]/div/table")
+html_table(RegionsByContinent, fill=TRUE)
+
+CountriesInAfrica <- html_nodes(countrydata, xpath="//*[@id=\"table_id1\"]")
+html_table(CountriesInAfrica, fill=TRUE)
+
+CountriesInAsia <- html_nodes(countrydata, xpath="//*[@id=\"table_id2\"]")
+html_table(CountriesInAsia, fill=TRUE)
+
+CountriesInEurope <- html_nodes(countrydata, xpath="//*[@id=\"table_id3\"]")
+html_table(CountriesInEurope, fill=TRUE)
+
+CountriesInNorthAmerica <- html_nodes(countrydata, xpath="//*[@id=\"table_id4\"]")
+html_table(CountriesInNorthAmerica, fill=TRUE)
+
+CountriesInSouthAmerica <- html_nodes(countrydata, xpath="//*[@id=\"table_id5\"]")
+html_table(CountriesInSouthAmerica, fill=TRUE)
+
+CountriesInOceania <- html_nodes(countrydata, xpath="//*[@id=\"table_id6\"]")
+html_table(CountriesInOceania, fill=TRUE)
+```
+
+# Question 3
+
+## Part (1)
+
+```{r}
+library(lubridate)
+
+MovieData <- read.csv("MovieData.csv", stringsAsFactors = FALSE)
+MovieData1 <- MovieData
+
+# Data Cleaning
+MovieData1$US.Gross <- as.numeric(gsub("\\$|,", "", MovieData1$US.Gross))
+MovieData1$Worldwide.Gross <- as.numeric(gsub("\\$|,", "", MovieData1$Worldwide.Gross))
+MovieData1$Budget <- as.numeric(gsub("\\$|,", "", MovieData1$Budget))
+MovieData1$Release.Date <- as.Date(MovieData1$Release.Date, format="%d/%m/%Y")
+
+MovieData1$Ratio1 <- MovieData1$US.Gross/MovieData1$Budget
+MovieData1$Ratio2 <- MovieData1$Worldwide.Gross/MovieData1$Budget
+MovieData1$Decade <- (as.numeric(year(MovieData1$Release.Date)) %/% 10) * 10
+
+MovieData1
+```
+
+## Part (2)
+
+```{r}
+DistributorMovieCount <- as.data.frame(table(MovieData1$Distributor))
+MovieData2 <- merge(MovieData1, DistributorMovieCount, by.x="Distributor", by.y="Var1")
+MovieData2$Distributor.New <- ifelse(MovieData2$Freq>30, MovieData2$Distributor, "Other")
+MovieData2$Distributor.New <- ifelse(MovieData2$Distributor=="", "Other", MovieData2$Distributor) # Missing "Distributor"
+```
+
+## Part (3)
+
+```{r}
+MovieData3 <- subset(MovieData2, MovieData2$Ratio1>=0) # Removes observations with NA for Ratio 1
+
+MovieDataByDistributorNew <- split(MovieData3, MovieData3$Distributor.New)
+
+mean(MovieDataByDistributorNew$`20th Century Fox`$Ratio1)
+sd(MovieDataByDistributorNew$`20th Century Fox`$Ratio1)
+
+mean(MovieDataByDistributorNew$`Buena Vista`$Ratio1)
+sd(MovieDataByDistributorNew$`Buena Vista`$Ratio1)
+
+mean(MovieDataByDistributorNew$`DreamWorks SKG`$Ratio1)
+sd(MovieDataByDistributorNew$`DreamWorks SKG`$Ratio1)
+
+mean(MovieDataByDistributorNew$`MGM/UA`$Ratio1)
+sd(MovieDataByDistributorNew$`MGM/UA`$Ratio1)
+
+mean(MovieDataByDistributorNew$Miramax$Ratio1)
+sd(MovieDataByDistributorNew$Miramax$Ratio1)
+
+mean(MovieDataByDistributorNew$`New Line`$Ratio1)
+sd(MovieDataByDistributorNew$`New Line`$Ratio1)
+
+mean(MovieDataByDistributorNew$Other$Ratio1)
+sd(MovieDataByDistributorNew$Other$Ratio1)
+
+mean(MovieDataByDistributorNew$`Paramount Pictures`$Ratio1)
+sd(MovieDataByDistributorNew$`Paramount Pictures`$Ratio1)
+
+mean(MovieDataByDistributorNew$Sony$Ratio1)
+sd(MovieDataByDistributorNew$Sony$Ratio1)
+
+mean(MovieDataByDistributorNew$Universal$Ratio1)
+sd(MovieDataByDistributorNew$Universal$Ratio1)
+
+mean(MovieDataByDistributorNew$`Warner Bros.`$Ratio1)
+sd(MovieDataByDistributorNew$`Warner Bros.`$Ratio1)
+
+# **Observations**
+# 1. Bell-shaped distribution. Medium-sized distributors (e.g. 20th Century Fox, Buena Vista) enjoy the highest percentage returns on their production budgets. Smaller distributors may not have the reputation to attract lucrative projects, while larger distributors may tend to dilute their returns with less profitable projects.
+
+MovieDataByDecade <- split(MovieData3, MovieData3$Decade)
+
+mean(MovieDataByDecade$`1980`$Ratio1)
+sd(MovieDataByDecade$`1980`$Ratio1)
+
+mean(MovieDataByDecade$`1990`$Ratio1)
+sd(MovieDataByDecade$`1990`$Ratio1)
+
+mean(MovieDataByDecade$`2000`$Ratio1)
+sd(MovieDataByDecade$`2000`$Ratio1)
+
+mean(MovieDataByDecade$`2010`$Ratio1)
+sd(MovieDataByDecade$`2010`$Ratio1)
+
+# **Observations**
+# 1. Decreasing trend. Percentage returns on movie production budgets have fallen over the past 3 decades. The explosion of American cinema is driving the industry towards saturation.
+# 2. Concave to origin (decreasing at a decreasing rate). The 1980s saw the sharpest decline in percentage returns for movie distributors. This is attributed to the expansion of the home video market and the growth of independent film.						
+```
+
+## Part (4)
+
+```{r}
+MovieData4 <- subset(MovieData2, MovieData2$Ratio2>=0) # Removes observations with NA for Ratio 2
+
+MovieDataByDistributorNew <- split(MovieData4, MovieData4$Distributor.New)
+
+mean(MovieDataByDistributorNew$`20th Century Fox`$Ratio2)
+sd(MovieDataByDistributorNew$`20th Century Fox`$Ratio2)
+
+mean(MovieDataByDistributorNew$`Buena Vista`$Ratio2)
+sd(MovieDataByDistributorNew$`Buena Vista`$Ratio2)
+
+mean(MovieDataByDistributorNew$`DreamWorks SKG`$Ratio2)
+sd(MovieDataByDistributorNew$`DreamWorks SKG`$Ratio2)
+
+mean(MovieDataByDistributorNew$`MGM/UA`$Ratio2)
+sd(MovieDataByDistributorNew$`MGM/UA`$Ratio2)
+
+mean(MovieDataByDistributorNew$Miramax$Ratio2)
+sd(MovieDataByDistributorNew$Miramax$Ratio2)
+
+mean(MovieDataByDistributorNew$`New Line`$Ratio2)
+sd(MovieDataByDistributorNew$`New Line`$Ratio2)
+
+mean(MovieDataByDistributorNew$Other$Ratio2)
+sd(MovieDataByDistributorNew$Other$Ratio2)
+
+mean(MovieDataByDistributorNew$`Paramount Pictures`$Ratio2)
+sd(MovieDataByDistributorNew$`Paramount Pictures`$Ratio2)
+
+mean(MovieDataByDistributorNew$Sony$Ratio2)
+sd(MovieDataByDistributorNew$Sony$Ratio2)
+
+mean(MovieDataByDistributorNew$Universal$Ratio2)
+sd(MovieDataByDistributorNew$Universal$Ratio2)
+
+mean(MovieDataByDistributorNew$`Warner Bros.`$Ratio2)
+sd(MovieDataByDistributorNew$`Warner Bros.`$Ratio2)
+
+MovieDataByDecade <- split(MovieData4, MovieData4$Decade)
+
+mean(MovieDataByDecade$`1980`$Ratio2)
+sd(MovieDataByDecade$`1980`$Ratio2)
+
+mean(MovieDataByDecade$`1990`$Ratio2)
+sd(MovieDataByDecade$`1990`$Ratio2)
+
+mean(MovieDataByDecade$`2000`$Ratio2)
+sd(MovieDataByDecade$`2000`$Ratio2)
+
+mean(MovieDataByDecade$`2010`$Ratio2)
+sd(MovieDataByDecade$`2010`$Ratio2)
+```
