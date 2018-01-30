@@ -1,6 +1,6 @@
 ---
-title: "A0130771M_Assignment1"
-author: "Daniel Wong"
+title: "DSC4217 Assignment 1 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
+author: "Ning Yu, Wong Jun Hao Marcus, Peter Haw Han Beng, Han Zixuan, Daniel Wong Sing Dong"
 date: "26/01/2018"
 output: html_document
 ---
