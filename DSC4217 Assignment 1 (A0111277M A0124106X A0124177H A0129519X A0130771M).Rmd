@@ -28,24 +28,20 @@ The column names are thus "Ozone", "Solar.R", "Wind", "Temp", "Month" and "Day" 
 airqualitycleaned <- na.omit(airquality)
 head(airqualitycleaned)
 ```
-I could assign it back to airquality (if that's what the question's intention is)
 
 ##4 Find the sub set of the data where the “Month” is 5.
 ```{r}
-airquality_month5 <- subset(airquality, Month == 5)
-airquality_month5indices <- which(airquality$Month == 5)
+airquality_month5 <- subset(airqualitycleaned, Month == 5)
+airquality_month5indices <- which(airqualitycleaned$Month == 5)
 
 head(airquality_month5)
-airquality_month5indices
 ```
-Sorry prof, I'm not sure whether you want us to get indices or get the subset
-Also, not sure whether the subset is of the cleaned data or not.
 
 ##5 
 ```{r}
-sum(7 <= airquality$Wind & airquality$Wind <= 8)
+sum(7 <= airqualitycleaned$Wind & airqualitycleaned$Wind <= 8)
 ```
-There are 21 such rows of data. (not sure whether to use cleaned data here or not)
+There are 16 such rows of data.
 
 ##6
 ```{r}
@@ -57,7 +53,6 @@ detach(airqualitycopy)
   
 head(airqualitycopy)
 ```
-I copied the dataset because I wanted to keep the airquality dataset pristine.
 
 ##7
 ```{r}
@@ -65,7 +60,6 @@ airqualitySubsetQ7 <- na.omit(airqualitycopy[,c("Solar.R", "Index", "Month", "Da
 
 head(airqualitySubsetQ7)
 ```
-Sorry prof, I'm not sure whether you want us to get indices or get the subset
 
 ##8
 ```{r}
