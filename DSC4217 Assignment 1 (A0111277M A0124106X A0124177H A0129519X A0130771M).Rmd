@@ -116,7 +116,7 @@ movieData$Budget <- as.numeric(gsub(",", "", gsub("\\$", "", movieData$Budget)))
 movieData$Worldwide.Gross <- as.numeric(gsub(",", "", gsub("\\$", "", movieData$Worldwide.Gross)))
 movieData$Ratio1 <- movieData$US.Gross/movieData$Budget
 movieData$Ratio2 <- movieData$Worldwide.Gross/movieData$Budget
-movieData$Decade <- floor(year(as.Date(movieData$Release.Date, format="%d/%m/%Y"))/10)*10
+movieData$Decade <- paste(floor(year(as.Date(movieData$Release.Date, format="%d/%m/%Y"))/10)*10,"s",sep="")
 ```
 ##2
 ```{r}
