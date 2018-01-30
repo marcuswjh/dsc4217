@@ -1,0 +1,159 @@
+---
+title: "A0130771M_Assignment1"
+author: "Daniel Wong"
+date: "26/01/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Q1 Use the data set “Airquality” in R to answer the following questions:
+##1 What are the dimensions of the data?
+```{r}
+dim(airquality)
+```
+
+There are thus 153 "rows" and 6 "columns".
+
+##2 What are the column names?
+```{r}
+colnames(airquality)
+```
+The column names are thus "Ozone", "Solar.R", "Wind", "Temp", "Month" and "Day" in that order.
+
+##3 Remove those rows with missing data.
+```{r}
+airqualitycleaned <- na.omit(airquality)
+head(airqualitycleaned)
+```
+I could assign it back to airquality (if that's what the question's intention is)
+
+##4 Find the sub set of the data where the “Month” is 5.
+```{r}
+airquality_month5 <- subset(airquality, Month == 5)
+airquality_month5indices <- which(airquality$Month == 5)
+
+head(airquality_month5)
+airquality_month5indices
+```
+Sorry prof, I'm not sure whether you want us to get indices or get the subset
+Also, not sure whether the subset is of the cleaned data or not.
+
+##5 
+```{r}
+sum(7 <= airquality$Wind & airquality$Wind <= 8)
+```
+There are 21 such rows of data. (not sure whether to use cleaned data here or not)
+
+##6
+```{r}
+airqualitycopy <- cbind(airquality)
+tracemem(airqualitycopy) == tracemem(airquality)
+attach(airqualitycopy)
+  airqualitycopy$Index = Solar.R*Wind/Temp
+detach(airqualitycopy)
+  
+head(airqualitycopy)
+```
+I copied the dataset because I wanted to keep the airquality dataset pristine.
+
+##7
+```{r}
+airqualitySubsetQ7 <- na.omit(airqualitycopy[,c("Solar.R", "Index", "Month", "Day")])
+
+head(airqualitySubsetQ7)
+```
+Sorry prof, I'm not sure whether you want us to get indices or get the subset
+
+##8
+```{r}
+aggregate(Day ~ Month, data = airquality, max)
+```
+The last day in the data for the months 5, 6, 7, 8 and 9 are thus 31, 30, 31, 31 and 30 respectively.
+
+##9
+```{r}
+aggregate(Temp ~ Month, data = airquality, FUN = function(x) c(minm = min(x), maxm = max(x)))
+```
+
+#Q2
+```{r}
+require(XML)
+require(RCurl)
+require(rvest)
+require(tidyverse)
+
+theurl <- "http://statisticstimes.com/geography/countries-by-continents.php"
+
+countryPage <- read_html(theurl)
+countryData <- countryPage %>% 
+  html_nodes("table.display")
+
+countryDataCaptions <- countryData %>% 
+  html_nodes("caption") %>% html_text
+countryDataCaptions <- gsub("[ \\t]+[(][0-9]+[)]$","",countryDataCaptions)
+
+countryDataTables <- countryData %>%
+  html_table
+continentsVec <- sapply(countryDataTables, function(x) dim(x)[1])
+continentFactor <- rep(countryDataCaptions,continentsVec)
+#countryDataTables <- data.frame(mapply(cbind, countryDataTables, countryDataCaptions))
+df <- do.call(rbind,countryDataTables) %>% cbind(continentFactor)
+
+head(df)
+tail(df)
+```
+
+#Q3
+##1 
+```{r}
+require(lubridate)
+movieData <- read.csv("MovieData.csv",na.strings="Unknown",stringsAsFactors = FALSE)
+movieData$US.Gross <- as.numeric(gsub(",", "", gsub("\\$", "", movieData$US.Gross)))
+movieData$Budget <- as.numeric(gsub(",", "", gsub("\\$", "", movieData$Budget)))
+movieData$Worldwide.Gross <- as.numeric(gsub(",", "", gsub("\\$", "", movieData$Worldwide.Gross)))
+movieData$Ratio1 <- movieData$US.Gross/movieData$Budget
+movieData$Ratio2 <- movieData$Worldwide.Gross/movieData$Budget
+movieData$Decade <- floor(year(as.Date(movieData$Release.Date, format="%d/%m/%Y"))/10)*10
+```
+##2
+```{r}
+##movieData <- 
+require(dplyr)
+movieDataModified <- movieData %>% 
+  group_by(Distributor) %>%
+  mutate(Distributor.Count = n()) %>%
+  mutate(Distributor.New = ifelse(Distributor == "", "Other", ifelse(Distributor.Count > 30, Distributor, "Other"))) %>%
+  ungroup()
+```
+
+##3
+```{r}
+movieDataModified %>%
+  group_by(Distributor.New, Decade) %>%
+  select(Distributor.New, Decade, Ratio1, Distributor.Count) %>%
+  na.omit %>%
+  summarize(av1 = mean(Ratio1), sd1 = sd(Ratio1), Distributor.Count = Distributor.Count[1]) %>%
+  arrange(desc(av1),desc(sd1),.by_group=TRUE) %>%
+  print(n=Inf)
+```
+It appears that distributors that have a moderate number of movies made (not too many or little) have the best percentage of US.gross for the amount of budget put into the movies. These distributors may be more selective in choosing the movies undertaken, and be widely recognized and experienced enough to attract and perform good projects.
+
+However, a recurring theme across distributors seems to be of decreasing percentage gross return. This could be because of increased competition. However, this decrease also comes with a decrease in standard deviation and an increase in certainty of returns (or this could just be due to increased experience).
+
+##4
+```{r}
+movieDataModified %>%
+  group_by(Distributor.New, Decade) %>%
+  select(Distributor.New, Decade, Ratio2, Distributor.Count) %>%
+  na.omit %>%
+  summarize(av2 = mean(Ratio2), sd2 = sd(Ratio2), Distributor.Count = Distributor.Count[1]) %>%
+  arrange(desc(av2),desc(sd2),.by_group=TRUE) %>%
+  print(n=Inf)
+```
+It appears that distributors that have a moderate number of movies made (not too many or little) have the best percentage of worldwide gross for the amount of budget put into the movies. These distributors may be more selective in choosing the movies undertaken, and be widely recognized and experienced enough to attract and perform good projects.
+
+However, a recurring theme across distributors seems to be of decreasing percentage gross return. This could be because of increased competition. However, this decrease also comes with a decrease in standard deviation and an increase in certainty of returns (or this could just be due to increased experience).
+
