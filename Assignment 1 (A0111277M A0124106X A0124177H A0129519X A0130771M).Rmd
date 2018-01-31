@@ -1,0 +1,150 @@
+---
+title: "Assignment 1 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
+author: "Ning Yu, Wong Jun Hao Marcus, Peter Haw Han Beng, Han Zixuan, Daniel Wong Sing Dong"
+date: "26/01/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q1. Use the data set “Airquality” in R to answer the following questions:
+
+### (1) What are the dimensions of the data?
+```{r}
+dim(airquality)
+```
+There are thus 153 "rows" and 6 "columns".
+
+### (2) What are the column names?
+```{r}
+colnames(airquality)
+```
+The column names are thus "Ozone", "Solar.R", "Wind", "Temp", "Month" and "Day" in that order.
+
+### (3) Remove those rows with missing data.
+```{r}
+airqualitycleaned <- na.omit(airquality)
+head(airqualitycleaned)
+```
+
+### (4) Find the sub set of the data where the “Month” is 5.
+```{r}
+airquality_month5 <- subset(airqualitycleaned, Month == 5)
+head(airquality_month5)
+```
+
+### (5) How many rows of data are there with "Wind" between 7 and 8 inclusive? 
+```{r}
+sum(7 <= airqualitycleaned$Wind & airqualitycleaned$Wind <= 8)
+```
+There are 16 such rows of data.
+
+### (6) Add a column named "Index" with the value calculated with the above formula to airquality data set.
+```{r}
+airqualitycopy <- cbind(airquality)
+tracemem(airqualitycopy) == tracemem(airquality)
+attach(airqualitycopy)
+  airqualitycopy$Index = Solar.R*Wind/Temp
+detach(airqualitycopy)
+  
+head(airqualitycopy)
+```
+
+### (7) Find the subset of the new airquality data with only "Solar.R", "Index", "Month", and "Day" columns and without missing values.
+```{r}
+airqualitySubsetQ7 <- na.omit(airqualitycopy[,c("Solar.R", "Index", "Month", "Day")])
+
+head(airqualitySubsetQ7)
+```
+
+### (8) Find the last "Day" of each "Month".
+```{r}
+aggregate(Day ~ Month, data = airquality, max)
+```
+The last day in the data for the months 5, 6, 7, 8 and 9 are thus 31, 30, 31, 31 and 30 respectively.
+
+### (9) Find the maximum and minimum temperature of each month.
+```{r}
+aggregate(Temp ~ Month, data = airquality, FUN = function(x) c(minm = min(x), maxm = max(x)))
+```
+
+## Q2. Construct a data frame containing all countries in the world and the corresponding continents by crawling data from "http://statisticstimes.com/geography/countries-bycontinents.
+php".
+
+```{r}
+require(XML)
+require(RCurl)
+require(rvest)
+require(tidyverse)
+
+theurl <- "http://statisticstimes.com/geography/countries-by-continents.php"
+
+countryPage <- read_html(theurl)
+countryData <- countryPage %>% 
+  html_nodes("table.display")
+
+countryDataCaptions <- countryData %>% 
+  html_nodes("caption") %>% html_text
+countryDataCaptions <- gsub("[ \\t]+[(][0-9]+[)]$","",countryDataCaptions)
+
+countryDataTables <- countryData %>%
+  html_table
+continentsVec <- sapply(countryDataTables, function(x) dim(x)[1])
+continentFactor <- rep(countryDataCaptions,continentsVec)
+df <- do.call(rbind,countryDataTables) %>% cbind(continentFactor)
+
+head(df)
+tail(df)
+```
+
+## Q3. The file "MovieData.csv" lists financial data on movies released since 1980 with budgets of at least $20 million.
+
+### (1) Create three new variables, "Ratio1", "Ratio2", and "Decade".
+```{r}
+# Formatting Data
+movies = read.csv("MovieData.csv", stringsAsFactors = FALSE)
+movies$Budget = as.numeric(gsub('\\$|,','', movies$Budget))
+movies$US.Gross = as.numeric(gsub('\\$|,','', movies$US.Gross))
+movies$Worldwide.Gross = as.numeric(gsub('\\$|,','', movies$Worldwide.Gross))
+movies$Release.Date = as.Date(movies$Release.Date, "%d/%m/%Y")
+
+# Calculating new variables
+movies$Ratio1 = movies$US.Gross / movies$Budget
+movies$Ratio2 = movies$Worldwide.Gross / movies$Budget
+movies$Decade = ifelse(format(movies$Release.Date, "%Y")>1999, "2000s", ifelse(format(movies$Release.Date, "%Y")>1989, "1990s", "1980s"))
+
+head(movies)
+```
+
+### (2) Find counts of movies by various distributors. Then create one more column "Distributor.New" which lists the distributor for distributors with at least 30 movies and lists "Other" for the rest.
+```{r}
+d = as.array(rownames(table(movies$Distributor, exclude="")[table(movies$Distributor, exclude="")>29]))
+movies$Distributor.New = "Other"
+for (x in 1:length(d)){
+  movies$Distributor.New[movies$Distributor == d[x]] = d[x]
+}
+
+head(movies)
+```
+
+### (3) Show average and standard deviation of "Ratio1", broken down by "Distributor.New" and "Decade". Comment on it.
+```{r}
+m1 = na.omit(movies[c("Ratio1","Distributor.New","Decade")])
+tapply(m1$Ratio1, list(m1$Distributor.New, m1$Decade), mean)
+tapply(m1$Ratio1, list(m1$Distributor.New, m1$Decade), sd)
+```
+It appears that distributors that have a moderate number of movies made (not too many or little) have the best percentage of US.gross for the amount of budget put into the movies. These distributors may be more selective in choosing the movies undertaken, and be widely recognized and experienced enough to attract and perform good projects.
+
+However, a recurring theme across distributors seems to be of decreasing percentage gross return. This could be because of increased competition. However, this decrease also comes with a decrease in standard deviation and an increase in certainty of returns (or this could just be due to increased experience).
+
+### (4) Do the same for "Ratio2".
+```{r}
+m2 = na.omit(movies[c("Ratio2","Distributor.New","Decade")])
+tapply(m2$Ratio2, list(m2$Distributor.New, m2$Decade), mean)
+tapply(m2$Ratio2, list(m2$Distributor.New, m2$Decade), sd)
+```
+It appears that distributors that have a moderate number of movies made (not too many or little) have the best percentage of worldwide gross for the amount of budget put into the movies. These distributors may be more selective in choosing the movies undertaken, and be widely recognized and experienced enough to attract and perform good projects.
+
+However, a recurring theme across distributors seems to be of decreasing percentage gross return. This could be because of increased competition. However, this decrease also comes with a decrease in standard deviation and an increase in certainty of returns (or this could just be due to increased experience).
