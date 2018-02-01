@@ -65,7 +65,7 @@ movies$Release.Date = as.Date(movies$Release.Date, "%d/%m/%Y")
 # Calculating new variables
 movies$Ratio1 = movies$US.Gross / movies$Budget
 movies$Ratio2 = movies$Worldwide.Gross / movies$Budget
-movies$Decade = ifelse(format(movies$Release.Date, "%Y")>1999, "2000s", ifelse(format(movies$Release.Date, "%Y")>1989, "1990s", "1980s"))
+movies$Decade = ifelse(format(movies$Release.Date, "%Y")>2009, "2010s", ifelse(format(movies$Release.Date, "%Y")>1999, "2000s", ifelse(format(movies$Release.Date, "%Y")>1989, "1990s", "1980s")))
 
 # Distributors
 d = as.array(rownames(table(movies$Distributor, exclude="")[table(movies$Distributor, exclude="")>29]))
