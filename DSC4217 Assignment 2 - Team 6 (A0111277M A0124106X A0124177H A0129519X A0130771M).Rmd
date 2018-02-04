@@ -1,5 +1,5 @@
 ---
-title: "Assignment 2 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
+title: "DSC4217 Assignment 2 - Team 6 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
 author: "Ning Yu, Wong Jun Hao Marcus, Peter Haw Han Beng, Han Zixuan, Daniel Wong Sing Dong"
 date: "2/4/2018"
 output: html_document
