@@ -37,21 +37,19 @@ host_url = 'https://www.srx.com.sg'
 ```
 
 ```{r}
+# this function will fetch all listing nodes and return them as a list
 fetch_property_nodes = function(page) {
     url = paste(host_url, "/search/sale/residential?page=", page, sep = "")
     srx_html = read_html(url)
     listing = html_nodes(srx_html, ".listingDetailTitle")
     if(length(listing) == 0)
         return(c('Done'))
-#     a<-html_children(listing[1])
-#     title <- html_text(a)
-#     return (title)
     return(listing)
 }
 ```
 
 ```{r}
-#Run Result(1000), Result(10000), Result(100000) and compare the results.
+# this is just a try-catch wrapper on top of ^
 trycatch_fetch_property_notes = function(n) {
     result = tryCatch({
         return (fetch_property_nodes(n))
@@ -67,6 +65,7 @@ trycatch_fetch_property_notes = function(n) {
 ```
 
 ```{r}
+# this function takes in the node's 1) details 2) facilities and 3) agent name and spits out a single-row df for entry
 get_df_from_node_list = function(listing_info_node, facilities_info_node, agent_name) {
     labels = listing_info_node %>% html_children %>% `[`(c(T, F)) %>% html_text %>% takeout_last_char
     values = listing_info_node %>% html_children %>% `[`(c(F, T)) %>% html_text %>% remove_tabs
@@ -82,25 +81,34 @@ get_df_from_node_list = function(listing_info_node, facilities_info_node, agent_
 ```
 
 ```{r}
+# simple function to remove spaces of all kinds
 remove_tabs = function(x) {
     gsub("([\t]|[\r\n])", "", x)
 }
 ```
 
 ```{r}
+# simple function to remove the colon from the label
 takeout_last_char = function(x) {
     x %>% substr(1, nchar(x) - 1)
 }
 ```
 
 ```{r}
-#To save time, I started from the 1650th page. You may change it to n<-1L to start from page 1.
+# the real script, 
+# 1. calls a query for each page
+# 2. for every listing, call a query to pull data about listing
+# 3. feeds listing data into get_df_from_node_list to get a single row df
+# 4. stitch df into main df
+# 5. breaks when done
+#
+# this function can be further refactored for SLAP (not important for this mod)
+
 n = 1L
 prop_df = data.frame()
 
 while(n<3){
     property = trycatch_fetch_property_notes(n)
-#     print(property)
     
     if (property[1] == 'Done') {
         break
@@ -113,7 +121,6 @@ while(n<3){
         listing_info = html_nodes(listing_data[1], 'p')
         facilities_info = listing_data[2]
         agent_name = listing_html %>% html_node('.featuredAgentName') %>% html_text
-#         if (i == 1) print(agent_name)
         row_df = get_df_from_node_list(listing_info, facilities_info, agent_name)
         prop_df = suppressWarnings(bind_rows(prop_df, row_df))
     }
