@@ -113,7 +113,7 @@ takeout_last_char = function(x) {
 n = 1L
 prop_df = data.frame()
 
-while(n<3){
+while(n < 100000){ #we use 100,000 instead of TRUE so that even if the code fails, we don't go on forever
     property = trycatch_fetch_property_notes(n)
     
     if (property[1] == 'Done') {
