@@ -14,9 +14,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 rowsWithMajorityOnes <- function(m, c) {
+  
+  if (!is.matrix(m)){
+    return("Error. First parameter must be a matrix.")
+  }
+  else if (any((m==0)+(m==1) != 1)){
+    return("Error. Matrix can only contain values of 0 or 1.")
+  }
+  if (c > dim(m)[2]){
+    return("Error. Second parameter c must not be greater than number of columns in matrix.")
+  }
+  
   v = (length=dim(m)[1])
   for (i in 1:dim(m)[1]) {
-    v[i] <- ifelse(sum(m[i,1:c])>(c/2), 1, 0)
+    v[i] <- ifelse(sum(m[i,1:c])>=(c/2), 1, 0)
  }
   return(v)
 }
