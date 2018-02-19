@@ -75,7 +75,7 @@ require(ggplot2)
 require(ggthemes)
 ```
 
-## 1st Visualization: PSF of Private Properties by Loaction
+## 1st Visualization: PSF of Private Properties by Region
 ```{r}
 # to create a df classifies means PSF by District
 psf.pp.df = as.data.frame(tapply(srxData$PSFBuilt, srxData$District, mean, na.rm=TRUE))
@@ -86,10 +86,10 @@ rownames(psf.pp.df) = 1: dim(psf.pp.df)[1]
 psf.pp.df <- psf.pp.df[order(psf.pp.df$PSF), ]
 psf.pp.df$District <- factor(psf.pp.df$District, levels = psf.pp.df$District[order(psf.pp.df$PSF)])
 # plot the bar chart 
-ggplot(psf.pp.df) + geom_bar(aes(x=District, y= PSF),stat="identity", fill="lightpink") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of Private Properties by Location") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
+ggplot(psf.pp.df) + geom_bar(aes(x=District, y= PSF),stat="identity", fill="lightpink") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of Private Properties by Region") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
 ```
 
-## 2nd Visualization: PSF of HDB by Loaction
+## 2nd Visualization: PSF of HDB by Region
 ```{r}
 # to create a df classifies means PSF by HDB.Town
 psf.hdb.df = as.data.frame(tapply(srxData$PSFBuilt, srxData$HDB.Town, mean, na.rm=TRUE))
@@ -100,5 +100,5 @@ rownames(psf.hdb.df) = 1: dim(psf.hdb.df)[1]
 psf.hdb.df <- psf.hdb.df[order(psf.hdb.df$PSF), ]
 psf.hdb.df$HDB.Town <- factor(psf.hdb.df$HDB.Town, levels = psf.hdb.df$HDB.Town[order(psf.hdb.df$PSF)])
 # plot the bar chart 
-ggplot(psf.hdb.df) + geom_bar(aes(x=HDB.Town, y= PSF),stat="identity", fill="lightblue") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of HDB by Location") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
+ggplot(psf.hdb.df) + geom_bar(aes(x=HDB.Town, y= PSF),stat="identity", fill="lightblue") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of HDB by Region") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
 ```
