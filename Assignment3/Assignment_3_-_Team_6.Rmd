@@ -102,3 +102,32 @@ psf.hdb.df$HDB.Town <- factor(psf.hdb.df$HDB.Town, levels = psf.hdb.df$HDB.Town[
 # plot the bar chart 
 ggplot(psf.hdb.df) + geom_bar(aes(x=HDB.Town, y= PSF),stat="identity", fill="lightblue") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of HDB by Region") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
 ```
+
+## Ning Yu's Visualization: Cost PSF by house type
+```{r}
+srx_hdb = srxData[grep('HDB', srxData$Property.Type),]
+ggplot(srx_hdb, aes(Property.Type, PSFBuilt)) + 
+  geom_boxplot(aes(fill=Property.Type)) +
+  ggtitle("PSF Prices distributed by HDB Type")
+```
+
+## Treemap Attempt
+```{r}
+library(treemapify)
+srx_treemap = srxData %>%
+  group_by(District, Property.Type) %>%
+  summarise(
+    psf_mean=mean(PSFBuilt, na.rm=T),
+    count=n()
+  ) %>%
+  as.data.frame %>%
+  na.omit
+
+ggplot(srx_treemap, aes(fill=psf_mean, area=count, label=Property.Type, subgroup=District)) +
+  geom_treemap() +
+  geom_treemap_subgroup_border() +
+  geom_treemap_subgroup_text(place = "centre", grow = T, alpha = 0.5, colour = "black", fontface = "italic", min.size = 0) +
+  geom_treemap_text(colour = "white", place = "topleft", reflow = T) +
+  scale_fill_gradient(low="green", high="red")
+
+```
