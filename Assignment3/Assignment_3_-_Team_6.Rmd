@@ -1,56 +1,54 @@
 ---
-title: "Assignment 2 - Team 6 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
+title: "Assignment 3 - Team 6 (A0111277M A0124106X A0124177H A0129519X A0130771M)"
 author: "Ning Yu, Wong Jun Hao Marcus, Peter Haw Han Beng, Han Zixuan, Daniel Wong Sing Dong"
 date: "2/19/2018"
 output: html_document
 ---
 
+## Question 1.
+#### Run your codes in Assignment 2 to crawl at least 100 pages of SRX data. Clean it up and explore it using the techniques learned in class. Write a 2-page report in Word about your findings.
 
-#Data Cleaning using R
+After crawling the first 100 pages of search results on the SRX website, the following code was applied to clean the data.
+  
 ```{r}
 require(magrittr)
 require(dplyr)
 require(mice)
 
 srxData <- read.csv("srx (Team 6).csv", stringsAsFactors = TRUE)
-srxData$X <- NULL #get rid of row indices
-#na_count <-sapply(srxData, function(y) sum(length(which(is.na(y)))))
+srxData$X <- NULL # Gets rid of row indices
 na_count <-sapply(srxData, function(y) sum(is.na(y)))
 na_count
 
-#md.pattern(srxData)
-
-#srxData$Property.Name
-#srxData$Property.Type   Got time do HDB dummy variable
+# Asking: (1) Assigned "NA" to observations with no asking price, and (2) added a new column that indicates which observations have an asking price and which do not.
 suppressWarnings(srxData$Asking <- ifelse(srxData$Asking=="View to offer", NA, as.numeric(gsub(",", "", gsub("\\$", "", srxData$Asking)))))
-srxData$AskingAvail <- !is.na(srxData$Asking) #correspond to those that do not offer their prices. More expensive?. PSF also missing for same reason.
-srxData$PSFLand <- as.numeric(gsub(".*[(]Built-up[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Land[)])).*", "\\1", srxData$PSF, perl = TRUE)))) #creates a new numeric vector to store PSF by Land #should I create a factor for when it is NA?
-srxData$PSFBuilt <- as.numeric(gsub(".*[(]Land[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Built-up[)])).*", "\\1", srxData$PSF, perl = TRUE)))) #creates a new numeric vector to store PSF by Built
-#srxData$Built.Year #should I create a factor for when it is NA?
-srxData$Model <- factor(gsub("(?!.*[)])([(].*+)", "\\1)", srxData$Model, perl = TRUE)) #closes unclosed round brackets in the data
+srxData$AskingAvail <- !is.na(srxData$Asking)
 
-#treat the nearly mutually exclusive NA's in HDB Town and District
-#manually treat the missing NA for both HDB Town and District
+# PSF: Added two new columns to differentiate PSF price (land basis) and PSF price (built-up basis).
+srxData$PSFLand <- as.numeric(gsub(".*[(]Built-up[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Land[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+srxData$PSFBuilt <- as.numeric(gsub(".*[(]Land[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Built-up[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+
+# Model: Closed unclosed round brackets in the data.
+srxData$Model <- factor(gsub("(?!.*[)])([(].*+)", "\\1)", srxData$Model, perl = TRUE))
+
+# District & HDB.Town: Manually assign a HDB.Town to the sole observation with an NA in both "District" and "HDB Town"
 srxData[which((is.na(srxData$HDB.Town) == TRUE) & (is.na(srxData$District) == TRUE)),]$HDB.Town <- "Queenstown"
 
-#A lot of work for Developer
+# Developer
   srxData$Developer <- factor(toupper(gsub("(?i)limited(?-i)", "LTD", srxData$Developer)))
   srxData$Developer <- factor(gsub("[(]*(?i)PRIVATE[)]*(?-i)", "PTE", srxData$Developer, perl = TRUE))
-#manual fixing for spotted errors
-  srxData$Developer <- factor(gsub("(BUKI SEMABWANG ESTATES LTD)|(BUKIT SEMABWANG ESTATES LTD)", "BUKIT SEMBAWANG ESTATES LIMITED", srxData$Developer)) #should have a dummy for every company. Not sure ASTON and ASTOR are same companies.
+  srxData$Developer <- factor(gsub("(BUKI SEMABWANG ESTATES LTD)|(BUKIT SEMABWANG ESTATES LTD)", "BUKIT SEMBAWANG ESTATES LIMITED", srxData$Developer))
   srxData$Developer <- factor(gsub("CITY DEVELOPMENT LTD", "CITY DEVELOPMENTS LTD", srxData$Developer))
   srxData$Developer <- factor(gsub("ORGANISATION", "ORGANIZATION", srxData$Developer))
   srxData$Developer <- factor(gsub("FAIRVIEW DEVELOPMENT PTE LTD", "FAIRVIEW DEVELOPMENTS PTE LTD", srxData$Developer))
   srxData$Developer <- ifelse(grepl("HDB",srxData$Property.Type),
                                       "HOUSING DEVELOPMENT BOARD",srxData$Developer)
-#srxData$Address ??
-#srxData$District #can it be obtained from the address?
-#srxData$Bedrooms #is 1+1 same as 2? Is Studio same as 1?
-#srxData$Bathrooms #should I create a factor for NA's?
-#srxData$Floor #is ground floor same as floor 1? Factor for NA's? high, low and mid floors - how to use?
+
+# Floor
 srxData$Floor <- addNA(srxData$Floor)
 levels(srxData$Floor) <- ifelse(grepl("01",levels(srxData$Floor)),"GROUND",levels(srxData$Floor))
 
+# Area: (1) Introduced a conversion factor for converting sqm to sqft, and (2) added two new columns to differentiate area (land basis) and area (built-up basis).
 sqmToSqftConvFactor <- 10.7639
 srxData$AreaLand <- ifelse(grepl("sqft",srxData$Area)|
                              is.na(srxData$Area),
@@ -60,36 +58,37 @@ srxData$AreaBuilt <- ifelse(grepl("sqft",srxData$Area)|
                               is.na(srxData$Area),
                             as.numeric(gsub(".*(([(]Land[)])|(sqm)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqft\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE)))), 
                             as.numeric(gsub(".*(([(]Land[)])|(sqft)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqm\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE))))*sqmToSqftConvFactor)
-levels(srxData$Tenure) <- ifelse(grepl("Freehold",levels(srxData$Tenure)),"FREEHOLD",levels(srxData$Tenure)) #can I just leave the factors as they are? Factor for NA's?
+
+# Tenure
+levels(srxData$Tenure) <- ifelse(grepl("Freehold",levels(srxData$Tenure)),"FREEHOLD",levels(srxData$Tenure))
 levels(srxData$Tenure) <- ifelse(grepl("946 years from 01/01/1938",levels(srxData$Tenure)) | grepl("946 years from 23/06/1938",levels(srxData$Tenure)) | grepl("947 years from 05/10/1934",levels(srxData$Tenure)),"999 years",levels(srxData$Tenure))
-#srxData$No..of.Units #Factor for NA's?
-#srxData$Facilities #split into factors?
-#srxData$Agent #Looks ok?
+
+# Furnish
 srxData$Furnish <- addNA(srxData$Furnish)
-#srxData$HDB.Town #Factor for NA's? How to identify HDBs?
 ```
 
+With the data cleaned, the following visualisations were done.
 
 ```{r}
 require(ggplot2)
 require(ggthemes)
 ```
 
-## 1st Visualization: PSF of Private Properties by Region
+#### PSF of Private Properties by Region
 ```{r}
 # to create a df classifies means PSF by District
 psf.pp.df = as.data.frame(tapply(srxData$PSFBuilt, srxData$District, mean, na.rm=TRUE))
 colnames(psf.pp.df) = c("PSF")
 psf.pp.df$District = rownames(psf.pp.df)
 rownames(psf.pp.df) = 1: dim(psf.pp.df)[1]
-# sort the factor level of $Distrct in asending order of the corrsponding PSF value (for ploting)
+# sort the factor level of $District in ascending order of the corresponding PSF value (for plotting)
 psf.pp.df <- psf.pp.df[order(psf.pp.df$PSF), ]
 psf.pp.df$District <- factor(psf.pp.df$District, levels = psf.pp.df$District[order(psf.pp.df$PSF)])
 # plot the bar chart 
 ggplot(psf.pp.df) + geom_bar(aes(x=District, y= PSF),stat="identity", fill="lightpink") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of Private Properties by Region") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
 ```
 
-## 2nd Visualization: PSF of HDB by Region
+#### PSF of HDB by Region
 ```{r}
 # to create a df classifies means PSF by HDB.Town
 psf.hdb.df = as.data.frame(tapply(srxData$PSFBuilt, srxData$HDB.Town, mean, na.rm=TRUE))
@@ -101,4 +100,14 @@ psf.hdb.df <- psf.hdb.df[order(psf.hdb.df$PSF), ]
 psf.hdb.df$HDB.Town <- factor(psf.hdb.df$HDB.Town, levels = psf.hdb.df$HDB.Town[order(psf.hdb.df$PSF)])
 # plot the bar chart 
 ggplot(psf.hdb.df) + geom_bar(aes(x=HDB.Town, y= PSF),stat="identity", fill="lightblue") + coord_flip()  + labs(x="", y="PSF") + ggtitle("Average PSF of HDB by Region") + theme(axis.text.y=element_text(size = rel(0.8))) + theme_minimal() 
+```
+
+#### Variation in Asking Price for Different Property Types
+```{r}
+ggplot(srxData,aes(x=Property.Type,y=Asking)) + geom_boxplot() + ylim(0,3000000) + coord_flip() + labs(title="Variation in Asking Price for Different Property Types", y="Asking Price")
+```
+
+#### Variation in Asking Price with Number of Bathrooms
+```{r}
+ggplot(srxData, aes(x=Bathrooms,y=Asking)) + ylim(0,10000000) + geom_point(position=position_jitter(w=.2,h=.05)) + xlim(1,8) + labs(title="Variation in Asking Price with Number of Bathrooms", y="Asking Price")
 ```
