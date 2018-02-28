@@ -1,0 +1,24 @@
+---
+title: "Assign_4_hzx"
+author: "Han Zixuan"
+date: "27/02/2018"
+output: html_document
+---
+
+# Get lon and lat information from address (in text)
+```{r}
+to be copied from Geocoding script
+```
+
+# Plot of the MRT lines
+## to be use later 
+```{r}
+require(ggplot2)
+require(ggmap)
+
+mrt.location <- read.csv("MRT_coordinates.csv", header=TRUE, colClasses=c("numeric","character","numeric","numeric","numeric","numeric","factor"))
+
+mrtp1 <- qmap("Singapore", base_layer=ggplot(aes(x=lon, y=lat), data=mrt.location), zoom=11, scale=2)
+mrtp2 <- mrtp1 + geom_path(aes(group=factor(Route), color = Line)) + scale_color_manual(values = c("gold", "blue", "green","violet","red"))
+```
+
