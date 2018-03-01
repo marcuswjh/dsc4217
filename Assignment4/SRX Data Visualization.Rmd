@@ -1,0 +1,96 @@
+---
+title: "SRX Data Visualization"
+author: "Peter Haw"
+date: "28 February 2018"
+output: html_document
+---
+Data Cleaning
+```{r}
+require(magrittr)
+require(dplyr)
+require(mice)
+
+srxData <- read.csv("srx_team_6.csv", stringsAsFactors = TRUE)
+srxData$X <- NULL # Gets rid of row indices
+na_count <-sapply(srxData, function(y) sum(is.na(y)))
+na_count
+
+# Asking: (1) Assigned "NA" to observations with no asking price, and (2) added a new column that indicates which observations have an asking price and which do not.
+suppressWarnings(srxData$Asking <- ifelse(srxData$Asking=="View to offer", NA, as.numeric(gsub(",", "", gsub("\\$", "", srxData$Asking)))))
+srxData$AskingAvail <- !is.na(srxData$Asking)
+
+# PSF: Added two new columns to differentiate PSF price (land basis) and PSF price (built-up basis).
+srxData$PSFLand <- as.numeric(gsub(".*[(]Built-up[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Land[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+srxData$PSFBuilt <- as.numeric(gsub(".*[(]Land[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Built-up[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+
+# Model: Closed unclosed round brackets in the data.
+srxData$Model <- factor(gsub("(?!.*[)])([(].*+)", "\\1)", srxData$Model, perl = TRUE))
+
+# District & HDB.Town: Manually assign a HDB.Town to the sole observation with an NA in both "District" and "HDB Town"
+srxData[which((is.na(srxData$HDB.Town) == TRUE) & (is.na(srxData$District) == TRUE)),]$HDB.Town <- "Queenstown"
+
+# Developer
+  srxData$Developer <- factor(toupper(gsub("(?i)limited(?-i)", "LTD", srxData$Developer)))
+  srxData$Developer <- factor(gsub("[(]*(?i)PRIVATE[)]*(?-i)", "PTE", srxData$Developer, perl = TRUE))
+  srxData$Developer <- factor(gsub("(BUKI SEMABWANG ESTATES LTD)|(BUKIT SEMABWANG ESTATES LTD)", "BUKIT SEMBAWANG ESTATES LIMITED", srxData$Developer))
+  srxData$Developer <- factor(gsub("CITY DEVELOPMENT LTD", "CITY DEVELOPMENTS LTD", srxData$Developer))
+  srxData$Developer <- factor(gsub("ORGANISATION", "ORGANIZATION", srxData$Developer))
+  srxData$Developer <- factor(gsub("FAIRVIEW DEVELOPMENT PTE LTD", "FAIRVIEW DEVELOPMENTS PTE LTD", srxData$Developer))
+  srxData$Developer <- ifelse(grepl("HDB",srxData$Property.Type),
+                                      "HOUSING DEVELOPMENT BOARD",srxData$Developer)
+
+# Floor
+srxData$Floor <- addNA(srxData$Floor)
+levels(srxData$Floor) <- ifelse(grepl("01",levels(srxData$Floor)),"GROUND",levels(srxData$Floor))
+
+# Area: (1) Introduced a conversion factor for converting sqm to sqft, and (2) added two new columns to differentiate area (land basis) and area (built-up basis).
+sqmToSqftConvFactor <- 10.7639
+srxData$AreaLand <- ifelse(grepl("sqft",srxData$Area)|
+                             is.na(srxData$Area),
+                           as.numeric(gsub(".*(([(]Built-up[)])|(sqm)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqft\\s+[(]Land[)])).*", "\\2", srxData$Area, perl = TRUE)))), 
+                           as.numeric(gsub(".*(([(]Built-up[)])|(sqft)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqm\\s+[(]Land[)])).*", "\\2", srxData$Area, perl = TRUE))))*sqmToSqftConvFactor)
+srxData$AreaBuilt <- ifelse(grepl("sqft",srxData$Area)|
+                              is.na(srxData$Area),
+                            as.numeric(gsub(".*(([(]Land[)])|(sqm)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqft\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE)))), 
+                            as.numeric(gsub(".*(([(]Land[)])|(sqft)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqm\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE))))*sqmToSqftConvFactor)
+
+# Tenure
+levels(srxData$Tenure) <- ifelse(grepl("Freehold",levels(srxData$Tenure)),"FREEHOLD",levels(srxData$Tenure))
+levels(srxData$Tenure) <- ifelse(grepl("946 years from 01/01/1938",levels(srxData$Tenure)) | grepl("946 years from 23/06/1938",levels(srxData$Tenure)) | grepl("947 years from 05/10/1934",levels(srxData$Tenure)),"999 years",levels(srxData$Tenure))
+
+# Furnish
+srxData$Furnish <- addNA(srxData$Furnish)
+```
+
+Scatter Plots
+```{r}
+require(ggplot2)
+srxData$Category = ifelse(srxData$Property.Type %in% c("HDB 2 Rooms","HDB 3 Rooms"), "Low End", 
+  ifelse(srxData$Property.Type %in% c("HDB 4 Rooms","HDB 5 Rooms","HDB Executive","HDB Jumbo"), "Mid End HDB", 
+  ifelse(srxData$Property.Type %in% c("Apartment","Condominium"), "Mid End Private", "High End")))
+
+ggplot(srxData,aes(x=Min.Distance, y=PSFBuilt, color=Category)) + geom_point() + facet_wrap(~Category) + geom_smooth(method='lm',formula=y~x, color="black") + ylim(0,4000) + theme(plot.title = element_text(hjust=0.5)) +
+  labs(title="Graphs of PSF(Built)  vs  Distance to nearest MRT", x="Distance to nearest MRT (m)", y="Price per sqft (Built)")
+```
+
+The charts here show how PSF changes with respect to distance to the nearest MRT station, split into 4 categories of housing. As is expected, PSF decreases when a house is less accessible (located further away from an MRT station) - this trend holds for all 4 categories. 
+
+Interestingly, the negative gradient of each slope provides some insight. The slope for Mid End Private housing (Apartments and Condomuniums) is much steeper and more significant than all the other 3 slopes, which are relatively flat. This is evidence for our hypothesis that accessibility is a significant factor in determining the price of housing, but only for middle-income families. 
+
+
+Regression Statistics
+```{r}
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Category=="Low End",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Category=="Mid End HDB",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Category=="Mid End Private",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Category=="High End",]))[c(4,9)]
+```
+
+To provide some more quantitative analysis, we went one step further to calculate the regression statistics for each plot.
+
+For each category, in order:
+Slopes: -0.098, -0.057, -0.883, -0.163      Mid End Private slope is significantly steeper
+P-values: 0.0036, 9.1E-5, 9.2E-54, 0.021    (Probability that slope is obtained by chance)
+Adj R^2: 0.072, 0.028, 0.193, 0.020         (Proportion of variance explained by MRT Distance - Mid End Private higher)
+
+(plot a table)
