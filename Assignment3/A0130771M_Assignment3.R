@@ -57,3 +57,6 @@ levels(srxData$Tenure) <- ifelse(grepl("946 years from 01/01/1938",levels(srxDat
 #srxData$Agent #Looks ok?
 srxData$Furnish <- addNA(srxData$Furnish)
 #srxData$HDB.Town #Factor for NA's? How to identify HDBs?
+
+
+
