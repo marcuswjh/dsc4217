@@ -1,0 +1,336 @@
+---
+title: "DSC4217 Assignment 4"
+author: "Team 6 - Daniel Wong, Han Zixuan, Ning Yu, Marcus Wong, Peter Haw"
+date: "2/27/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Advanced Data Visualisation
+
+### Further enhance visualization of SRX data using techniques covered in Lesson 5.
+
+
+#### Webcrawler
+Improvement: Crawled the distance from each unit to its nearest MRT station.
+```{r}
+library(magrittr)
+library(dplyr)
+library(rvest)
+
+host_url = 'https://www.srx.com.sg'
+# this function will fetch all listing nodes and return them as a list
+fetch_property_nodes = function(page) {
+    url = paste(host_url, "/search/sale/residential?page=", page, sep = "")
+    srx_html = read_html(url)
+    listing = html_nodes(srx_html, ".listingDetailTitle")
+    if(length(listing) == 0)
+        return(c('Done'))
+    return(listing)
+}
+# this is just a try-catch wrapper on top of ^
+trycatch_fetch_property_notes = function(n) {
+    result = tryCatch({
+        return (fetch_property_nodes(n))
+    }, warning = function(n) {
+        print(paste("Warning in crawling the ", n, "th page of SRX", sep = ""))
+    }, error = function(n) {
+        print(paste("Error in crawling the ", n, "th page of SRX", sep = ""))
+        return(c('Done'))
+    }, finally = function(n) {
+    })
+    return (result)
+}
+# this function takes in the node's 1) details 2) facilities and 3) agent name and spits out a single-row df for entry
+get_df_from_node_list = function(listing_info_node, facilities_info_node, agent_name, min_dist) {
+    labels = listing_info_node %>% html_children %>% `[`(c(T, F)) %>% html_text %>% takeout_last_char
+    values = listing_info_node %>% html_children %>% `[`(c(F, T)) %>% html_text %>% remove_tabs
+    facilities = facilities_info %>% html_children %>% html_text %>% remove_tabs %>% paste(collapse=' | ')
+
+    data_list = list()
+    data_list[labels] = values
+    data_list['Facilities'] = facilities
+    data_list['Agent'] = agent_name
+    data_list['Min.Distance'] = min_dist
+
+    data_list %>% as.data.frame
+}
+# simple function to remove spaces of all kinds
+remove_tabs = function(x) {
+    result = gsub("([\t]|[\r\n])", "", x)
+    result
+}
+
+# simple function to remove the colon from the label
+takeout_last_char = function(x) {
+    x %>% substr(1, nchar(x) - 1)
+}
+mrt_class = ".amenity-15"
+distance_class = ".side-nearby-amenity-train-bus-distance"
+convert_km_to_m = function(dist) {
+    if (identical(dist, character(0))) {
+        return (list())
+    }
+    if (substring(dist, nchar(dist)-1, nchar(dist)) == 'km') {
+        return (as.numeric(substring(dist, 1, nchar(dist)-2)) * 1000)
+    } else {
+        return (as.numeric(substring(dist, 1, nchar(dist)-1)))
+    }
+}
+get_min_distance = function(html) {
+    distance = html %>%
+        html_nodes(mrt_class) %>%
+        html_nodes(distance_class) %>%
+        html_text %>%
+        remove_tabs %>%
+        sapply(convert_km_to_m) %>% 
+        as.vector %>% 
+        get_min_dist_if_exists
+    
+    return (distance)
+}
+get_min_dist_if_exists = function(dists) {
+    if (length(dists) == 0) {
+        return (NA)
+    } else {
+        return (min(dists))
+    }
+}
+# the real script,
+# 1. calls a query for each page
+# 2. for every listing, call a query to pull data about listing
+# 3. feeds listing data into get_df_from_node_list to get a single row df
+# 4. stitch df into main df
+# 5. breaks when done
+#
+# this function can be further refactored for SLAP (not important for this mod)
+
+n = 1L
+prop_df = data.frame()
+
+while(n < 0){ #we use 100,000 instead of TRUE so that even if the code fails, we don't go on forever
+    property = trycatch_fetch_property_notes(n)
+    print(n)
+
+    if (property[1] == 'Done') {
+        break
+    }
+
+    for (i in 1:length(property)) {
+        listing_url = paste(host_url, html_attr(property[i], 'href'), sep="")
+        listing_html = read_html(listing_url)
+        listing_data = html_nodes(listing_html, '.listing-about-main')
+        listing_info = html_nodes(listing_data[1], 'p')
+        facilities_info = listing_data[2]
+        min_dist = suppressWarnings(get_min_distance(listing_html))
+        agent_name = listing_html %>% html_node('.featuredAgentName') %>% html_text
+        
+        row_df = get_df_from_node_list(listing_info, facilities_info, agent_name, min_dist)
+        prop_df = suppressWarnings(bind_rows(prop_df, row_df))
+    }
+
+    n = n + 1
+}
+nrow(prop_df[is.na(prop_df$Min.Distance),])
+prop_df[is.na(prop_df$Min.Distance),]
+prop_df %>% nrow
+
+# prop_df %>% write.csv(file='srx_team_6.csv')
+```
+
+#### Geocoding Script
+To retrieve the postal code of each unit, and append it to the dataset.
+```{r}
+# library(ggmap)
+# # get the input data - data crawled from SRX, containing a column named "Address"
+# infile <- "srx_team_6"
+# data <- read.csv(paste0('./', infile, '.csv'))
+
+# # since srx data don't have the country infomation, append a "Singapore" to the end to increase accuracy 
+# addresses = data$Address
+# addresses = paste0(addresses, ", Singapore")
+
+# # This function will process googles map server responses.
+# getGeoDetails <- function(address){   
+#   #the geocode function uses Googles Geocoding API to turn addresses from text to latitude and longitude pairs
+#   geo_reply = geocode(address, output='all', messaging=TRUE, override_limit=TRUE)
+#   #create a data frame  extract the bits that we need from the returned list
+#   answer <- data.frame(lat=NA, long=NA, accuracy=NA, formatted_address=NA, address_type=NA, status=NA)
+#   answer$status <- geo_reply$status
+#   
+#   #if over the query limit - pause for 1 minute
+#   while(geo_reply$status == "OVER_QUERY_LIMIT"){
+#     print("OVER QUERY LIMIT - Pausing for 5 sec at:") 
+#     time <- Sys.time()
+#     print(as.character(time))
+#     Sys.sleep(5)
+#     geo_reply = geocode(address, output='all', messaging=TRUE, override_limit=TRUE)
+#     answer$status <- geo_reply$status
+#   }
+#   
+#   #return Na's if we didn't get a match:
+#   if (geo_reply$status != "OK"){
+#     return(answer)
+#   }   
+#   #else, extract what we need from the Google server store into the dataframe:
+#   answer$lat <- geo_reply$results[[1]]$geometry$location$lat
+#   answer$long <- geo_reply$results[[1]]$geometry$location$lng   
+#   if (length(geo_reply$results[[1]]$types) > 0){
+#     answer$accuracy <- geo_reply$results[[1]]$types[[1]]
+#   }
+#   answer$address_type <- paste(geo_reply$results[[1]]$types, collapse=',')
+#   answer$formatted_address <- geo_reply$results[[1]]$formatted_address
+#   
+#   return(answer)
+# }
+
+# #initialise a dataframe to hold the results
+# geocoded <- data.frame()
+# # find out where to start in the address list (if the script was interrupted before):
+# startindex <- 1
+# #if a temp file exists - load it up and count the rows!
+# tempfilename <- paste0(infile, '_temp_geocoded.rds')
+# if (file.exists(tempfilename)){
+#   print("Found temp file - resuming from index:")
+#   geocoded <- readRDS(tempfilename)
+#   startindex <- nrow(geocoded)
+#   print(startindex)
+# }
+
+# # Start the geocoding process - address by address. geocode() function takes care of query speed limit.
+# for (ii in seq(startindex, length(addresses))){
+#   print(paste("Working on index", ii, "of", length(addresses)))
+#   #query the google geocoder - this will pause here if we are over the limit.
+#   result = getGeoDetails(addresses[ii]) 
+#   print(result$status)     
+#   result$index <- ii
+#   #append the answer to the results file.
+#   geocoded <- rbind(geocoded, result)
+#   #save temporary results as we are going along
+#   saveRDS(geocoded, tempfilename)
+# }
+
+# #now we add the latitude and longitude to the main data
+# data$lat <- geocoded$lat
+# data$long <- geocoded$long
+# data$accuracy <- geocoded$accuracy
+
+# #finally write it all to the output files
+# #finally write it all to the output files
+# saveRDS(data, paste0("./", infile ,"_geocoded.rds"))
+# write.table(data, file=paste0("./", infile ,"_geocoded.csv"), sep=",", row.names=FALSE)
+```
+
+#### Data Cleaning
+```{r}
+require(magrittr)
+require(dplyr)
+require(mice)
+
+srxData <- read.csv("srx_team_6_geocoded.csv", stringsAsFactors = TRUE)
+srxData$X <- NULL # Gets rid of row indices
+na_count <-sapply(srxData, function(y) sum(is.na(y)))
+na_count
+
+# Asking: (1) Assigned "NA" to observations with no asking price, and (2) added a new column that indicates which observations have an asking price and which do not.
+suppressWarnings(srxData$Asking <- ifelse(srxData$Asking=="View to offer", NA, as.numeric(gsub(",", "", gsub("\\$", "", srxData$Asking)))))
+srxData$AskingAvail <- !is.na(srxData$Asking)
+
+# PSF: Added two new columns to differentiate PSF price (land basis) and PSF price (built-up basis).
+srxData$PSFLand <- as.numeric(gsub(".*[(]Built-up[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Land[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+srxData$PSFBuilt <- as.numeric(gsub(".*[(]Land[)].*", "", gsub(",", "", gsub(".*\\$([0-9,]+(?=\\s+psf\\s+[(]Built-up[)])).*", "\\1", srxData$PSF, perl = TRUE))))
+
+# Model: Closed unclosed round brackets in the data.
+srxData$Model <- factor(gsub("(?!.*[)])([(].*+)", "\\1)", srxData$Model, perl = TRUE))
+
+# District & HDB.Town: Manually assign a HDB.Town to the sole observation with an NA in both "District" and "HDB Town"
+srxData[which((is.na(srxData$HDB.Town) == TRUE) & (is.na(srxData$District) == TRUE)),]$HDB.Town <- "Queenstown"
+
+# Developer
+  srxData$Developer <- factor(toupper(gsub("(?i)limited(?-i)", "LTD", srxData$Developer)))
+  srxData$Developer <- factor(gsub("[(]*(?i)PRIVATE[)]*(?-i)", "PTE", srxData$Developer, perl = TRUE))
+  srxData$Developer <- factor(gsub("(BUKI SEMABWANG ESTATES LTD)|(BUKIT SEMABWANG ESTATES LTD)", "BUKIT SEMBAWANG ESTATES LIMITED", srxData$Developer))
+  srxData$Developer <- factor(gsub("CITY DEVELOPMENT LTD", "CITY DEVELOPMENTS LTD", srxData$Developer))
+  srxData$Developer <- factor(gsub("ORGANISATION", "ORGANIZATION", srxData$Developer))
+  srxData$Developer <- factor(gsub("FAIRVIEW DEVELOPMENT PTE LTD", "FAIRVIEW DEVELOPMENTS PTE LTD", srxData$Developer))
+  srxData$Developer <- ifelse(grepl("HDB",srxData$Property.Type),
+                                      "HOUSING DEVELOPMENT BOARD",srxData$Developer)
+
+# Floor
+srxData$Floor <- addNA(srxData$Floor)
+levels(srxData$Floor) <- ifelse(grepl("01",levels(srxData$Floor)),"GROUND",levels(srxData$Floor))
+
+# Area: (1) Introduced a conversion factor for converting sqm to sqft, and (2) added two new columns to differentiate area (land basis) and area (built-up basis).
+sqmToSqftConvFactor <- 10.7639
+srxData$AreaLand <- ifelse(grepl("sqft",srxData$Area)|
+                             is.na(srxData$Area),
+                           as.numeric(gsub(".*(([(]Built-up[)])|(sqm)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqft\\s+[(]Land[)])).*", "\\2", srxData$Area, perl = TRUE)))), 
+                           as.numeric(gsub(".*(([(]Built-up[)])|(sqft)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqm\\s+[(]Land[)])).*", "\\2", srxData$Area, perl = TRUE))))*sqmToSqftConvFactor)
+srxData$AreaBuilt <- ifelse(grepl("sqft",srxData$Area)|
+                              is.na(srxData$Area),
+                            as.numeric(gsub(".*(([(]Land[)])|(sqm)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqft\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE)))), 
+                            as.numeric(gsub(".*(([(]Land[)])|(sqft)).*", "", gsub(",", "", gsub("^.*(\\s|^)([0-9,]+(?=\\s+sqm\\s+[(]Built-up[)])).*", "\\2", srxData$Area, perl = TRUE))))*sqmToSqftConvFactor)
+
+# Tenure
+levels(srxData$Tenure) <- ifelse(grepl("Freehold",levels(srxData$Tenure)),"FREEHOLD",levels(srxData$Tenure))
+levels(srxData$Tenure) <- ifelse(grepl("946 years from 01/01/1938",levels(srxData$Tenure)) | grepl("946 years from 23/06/1938",levels(srxData$Tenure)) | grepl("947 years from 05/10/1934",levels(srxData$Tenure)),"999 years",levels(srxData$Tenure))
+
+# Furnish
+srxData$Furnish <- addNA(srxData$Furnish)
+```
+
+#### Geospatial Visualisation
+```{r}
+mrtStations <- read.csv("MRT_coordinates.csv", header=TRUE, colClasses= c("numeric","character","numeric","numeric","numeric","numeric","factor"))
+
+# Categorises units into four levels of perceived value
+srxData$Property.Category = ifelse(srxData$Property.Type %in% c("HDB 2 Rooms","HDB 3 Rooms"), "Low End", ifelse(srxData$Property.Type %in% c("HDB 4 Rooms","HDB 5 Rooms","HDB Executive","HDB Jumbo"), "Mid End HDB", ifelse(srxData$Property.Type %in% c("Apartment","Condominium"), "Mid End Private", "High End")))
+
+require(ggplot2)
+require(ggmap)
+
+# Plots MRT lines
+m1 <- qmap("Hougang", base_layer=ggplot(data=mrtStations, aes(x=lon, y=lat)), zoom=13, scale=2, maptype="satellite")
+m2 <- m1 + geom_point(color="grey") + geom_path(aes(group=factor(Route)), color="grey")
+
+m3 <- m2 + geom_point(data=srxData[srxData$Property.Category=="Low End" & srxData$HDB.Town %in% c("Serangoon", "Hougang", "Sengkang", "Punggol"),], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Lower-End Units in North-Eastern Singapore") + theme(plot.title=element_text(size=11,face="bold",hjust=0.5,vjust=0.5))
+
+m4 <- m2 + geom_point(data=srxData[srxData$Property.Category=="Mid End HDB" & srxData$HDB.Town %in% c("Serangoon", "Hougang", "Sengkang"),], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Mid-End HDB Units in North-Eastern Singapore") + theme(plot.title=element_text(size=11,face="bold",hjust=0.5,vjust=0.5))
+
+m5 <- m2 + geom_point(data=srxData[srxData$Property.Category=="Mid End Private" & srxData$District == "D19 - Hougang / Punggol / Sengkang",], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Mid-End Private Units in North-Eastern Singapore") + theme(plot.title=element_text(size=11,face="bold",hjust=0.5,vjust=0.5))
+
+m6 <- m2 + geom_point(data=srxData[srxData$Property.Category=="High End" & srxData$District == "D19 - Hougang / Punggol / Sengkang",], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Higher-End Units in North-Eastern Singapore") + theme(plot.title=element_text(size=11,face="bold",hjust=0.5,vjust=0.5))
+
+require("gridExtra")
+grid.arrange(m3,m4,m5,m6,ncol=2,nrow=2)
+```
+
+#### Scatter Plots with Regression Lines
+```{r}
+require(ggplot2)
+
+ggplot(srxData,aes(x=Min.Distance, y=PSFBuilt, color=Property.Category)) + geom_point() + facet_wrap(~Property.Category) + geom_smooth(method='lm',formula=y~x, color="black") + ylim(0,4000) + theme(plot.title = element_text(hjust=0.5)) + labs(title="Graphs of PSF(Built)  vs  Distance to nearest MRT", x="Distance to nearest MRT (m)", y="Price per sqft (Built)")
+```
+
+#### Regression Statistics
+```{r}
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Property.Category=="Low End",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Property.Category=="Mid End HDB",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Property.Category=="Mid End Private",]))[c(4,9)]
+summary(lm(formula = PSFBuilt ~ Min.Distance, data = srxData[srxData$Property.Category=="High End",]))[c(4,9)]
+```
+
+#### Geospatial Visualisation (for Mid-End Private Homes)
+```{r}
+m5a <- m2 + geom_point(data=srxData[srxData$Property.Category=="Mid End Private" & srxData$District %in% c("D13 - Macpherson / Potong Pasir", "D14 - Eunos / Geylang / Paya Lebar", "D19 - Hougang / Punggol / Sengkang", "D20 - Ang Mo Kio / Bishan / Thomson", "D28 - Seletar / Yio Chu Kang"),], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Mid-End Private Units in North-East, Central-East, and Central-North Singapore") + theme(plot.title=element_text(size=9,face="bold",hjust=0.5,vjust=0.5))
+
+m1b <- qmap("Clementi", base_layer=ggplot(data=mrtStations, aes(x=lon, y=lat)), zoom=13, scale=2, maptype="satellite")
+m2b <- m1b + geom_point(color="grey") + geom_path(aes(group=factor(Route)), color="grey")
+m5b <- m2b + geom_point(data=srxData[srxData$Property.Category=="Mid End Private" & srxData$District %in% c("D5 - Buona Vista / West Coast / Clementi New Town", "D21 - Clementi Park / Upper Bukit Timah"),], aes(x=long, y=lat, color=PSFBuilt)) + scale_color_gradient(low="green",high="red") + ggtitle("Mid-End Private Units in South-West and Central-West Singapore") + theme(plot.title=element_text(size=9,face="bold",hjust=0.5,vjust=0.5))
+
+require("gridExtra")
+grid.arrange(m5a,m5b,ncol=2,nrow=1)
+```
