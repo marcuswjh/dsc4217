@@ -4,7 +4,16 @@ require(dplyr); require(rvest); require(stringr); require(readr)
 # Section 1: Data frame for "artists" and "songs" ---------------------------------------------------------------
 artistsSongs <- data.frame(gsub(" -.*$", "", as.character(iTunesWeeklyData$Artist.and.Title)), gsub(".*- ", "", as.character(iTunesWeeklyData$Artist.and.Title)))
 colnames(artistsSongs) <- c("Artist", "Song")
+artistsSongs$Artist <- as.character(artistsSongs$Artist)
+artistsSongs$Song <- as.character(artistsSongs$Song)
+artistsSongsCleaned <- artistsSongs[!duplicated(artistsSongs),] # Keep only unique rows
 
+# Manual cleaning
+artistsSongsCleaned$Artist <- str_replace_all(artistsSongsCleaned$Artist, "&", "and") %>%
+  str_replace_all("P!nk", "P nk") %>% str_replace_all("P!NK", "P nk")
+artistsSongsCleaned$Song <- str_replace_all(artistsSongsCleaned$Song, "The Fox", "The Fox (What Does the Fox Say)") %>%
+  str_replace_all("A LIGHT THAT NEVER COME...", "A LIGHT THAT NEVER COMES")
+artistsSongsCleaned[21,1] <- "Lana Del Rey"; artistsSongsCleaned[21,2] <- "Summertime Sadness (Cedric Gervais Remix)"
 
 # Section 2: Function to generate Genius.com URL for a song ---------------------------------------------------------------
 gen_song_url <- function(artist = NULL, song = NULL) {
@@ -64,7 +73,7 @@ genius_url <- function(url, info = "all") {
   lyrics <- lyrics[str_detect(lyrics$text, "\\[|\\]") == FALSE, ]
   
   switch(info,
-         simple = {return(select(lyrics, -artist, -title))},
+         Aimple = {return(select(lyrics, -artist, -title))},
          artist = {return(select(lyrics, -title))},
          title = {return(select(lyrics, -artist))},
          all = return(lyrics)
@@ -83,4 +92,14 @@ genius_lyrics <- function(artist = NULL, song = NULL, info = "all") {
 }
 
 
-# Section 5 ---------------------------------------------------------------
+# Section 5: Compile lyrics for all songs in a CSV file ---------------------------------------------------------------
+geniusLyrics <- data.frame(artist=character(),
+                           title=character(),
+                           text=character(),
+                           line=numeric())
+  
+for (i in 1:nrow(artistsSongs)){
+  geniusLyrics_temp <- genius_lyrics(artistsSongsCleaned[i,1], artistsSongsCleaned[i,2])
+  geniusLyrics <- bind_rows(geniusLyrics, geniusLyrics_temp)
+  Sys.sleep(10)
+}
